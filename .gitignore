@@ -1,0 +1,5 @@
+screenshots-raw/
+tools/
+.DS_Store
+*.alfredworkflow
+__pycache__/
