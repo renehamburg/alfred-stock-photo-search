@@ -229,25 +229,23 @@
 		</dict>
 	</array>
 	<key>readme</key>
-	<string>Search, preview and download royalty-free photos from [Pexels](https://www.pexels.com), [Pixabay](https://pixabay.com) and [Unsplash](https://unsplash.com).
+	<string>## Usage
 
-## Usage
-
-Search royalty-free photos via the `photo` keyword. Each result shows a thumbnail, the photographer and the image size. Press &lt;kbd&gt;⌥&lt;/kbd&gt;&lt;kbd&gt;↩&lt;/kbd&gt; on a photo to put all its details on the clipboard at once, ready to paste into notes or an email.
+Search royalty-free photos on Pexels, Pixabay and Unsplash via the `photo` keyword.
 
 ![Searching for photos](images/search.png)
 
-* &lt;kbd&gt;↩&lt;/kbd&gt; Download the photo.
-* &lt;kbd&gt;⌘&lt;/kbd&gt;&lt;kbd&gt;↩&lt;/kbd&gt; Open the photo page in the browser.
-* &lt;kbd&gt;⌥&lt;/kbd&gt;&lt;kbd&gt;↩&lt;/kbd&gt; Copy all important details to the clipboard: title, photographer, source, size and the link to the photo page.
-* &lt;kbd&gt;⌃&lt;/kbd&gt;&lt;kbd&gt;↩&lt;/kbd&gt; Copy the credit line.
-* &lt;kbd&gt;⇧&lt;/kbd&gt; or &lt;kbd&gt;⌘&lt;/kbd&gt;&lt;kbd&gt;Y&lt;/kbd&gt; Quick Look a large preview of the photo.
+* &lt;kbd&gt;↩&lt;/kbd&gt; Download photo.
+* &lt;kbd&gt;⌘&lt;/kbd&gt;&lt;kbd&gt;↩&lt;/kbd&gt; Open photo page in the browser.
+* &lt;kbd&gt;⌥&lt;/kbd&gt;&lt;kbd&gt;↩&lt;/kbd&gt; Copy all details to the clipboard (title, photographer, source, size and link), ready to paste into notes or an email.
+* &lt;kbd&gt;⌃&lt;/kbd&gt;&lt;kbd&gt;↩&lt;/kbd&gt; Copy credit line.
+* &lt;kbd&gt;⌘&lt;/kbd&gt;&lt;kbd&gt;Y&lt;/kbd&gt; Quick Look photo (or tap &lt;kbd&gt;⇧&lt;/kbd&gt;).
 
-Prefix a search with `px:`, `pb:` or `us:` to use Pexels, Pixabay or Unsplash for that search.
+Prefix a search with `px:`, `pb:` or `us:` to use Pexels, Pixabay or Unsplash for that search only.
 
 ![Searching Pixabay with a prefix](images/prefix.png)
 
-Configure the default provider, download size and folder, language (English or German) and cache duration in the [Workflow’s Configuration](https://www.alfredapp.com/help/workflows/user-configuration/).
+The default provider, download size and folder are set in the [Workflow’s Configuration](https://www.alfredapp.com/help/workflows/user-configuration/).
 </string>
 	<key>uidata</key>
 	<dict>

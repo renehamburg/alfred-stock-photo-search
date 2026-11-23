@@ -4,21 +4,21 @@ Search, preview and download royalty-free photos from [Pexels](https://www.pexel
 
 ## Usage
 
-Search royalty-free photos via the `photo` keyword. Each result shows a thumbnail, the photographer and the image size. Press <kbd>⌥</kbd><kbd>↩</kbd> on a photo to put all its details on the clipboard at once, ready to paste into notes or an email.
+Search royalty-free photos on Pexels, Pixabay and Unsplash via the `photo` keyword.
 
 ![Searching for photos](images/search.png)
 
-* <kbd>↩</kbd> Download the photo.
-* <kbd>⌘</kbd><kbd>↩</kbd> Open the photo page in the browser.
-* <kbd>⌥</kbd><kbd>↩</kbd> Copy all important details to the clipboard: title, photographer, source, size and the link to the photo page.
-* <kbd>⌃</kbd><kbd>↩</kbd> Copy the credit line.
-* <kbd>⇧</kbd> or <kbd>⌘</kbd><kbd>Y</kbd> Quick Look a large preview of the photo.
+* <kbd>↩</kbd> Download photo.
+* <kbd>⌘</kbd><kbd>↩</kbd> Open photo page in the browser.
+* <kbd>⌥</kbd><kbd>↩</kbd> Copy all details to the clipboard (title, photographer, source, size and link), ready to paste into notes or an email.
+* <kbd>⌃</kbd><kbd>↩</kbd> Copy credit line.
+* <kbd>⌘</kbd><kbd>Y</kbd> Quick Look photo (or tap <kbd>⇧</kbd>).
 
-Prefix a search with `px:`, `pb:` or `us:` to use Pexels, Pixabay or Unsplash for that search.
+Prefix a search with `px:`, `pb:` or `us:` to use Pexels, Pixabay or Unsplash for that search only.
 
 ![Searching Pixabay with a prefix](images/prefix.png)
 
-Configure the default provider, download size and folder, language (English or German) and cache duration in the [Workflow’s Configuration](https://www.alfredapp.com/help/workflows/user-configuration/).
+The default provider, download size and folder are set in the [Workflow’s Configuration](https://www.alfredapp.com/help/workflows/user-configuration/).
 
 ## Licenses
 
