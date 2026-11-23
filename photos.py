@@ -9,9 +9,11 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,13 +25,15 @@ PROVIDER = os.environ.get("provider", "pexels")
 SIZE = os.environ.get("download_size", "large")
 LANG = "de" if os.environ.get("language") == "de" else "en"
 PER_PAGE = 30
+MAX_PARALLEL_THUMBS = 8
+
 # plain text field in the config, so don't trust it
 try:
     CACHE_DAYS = max(1, int(os.environ.get("cache_days", "7")))
 except ValueError:
     CACHE_DAYS = 7
 
-USER_AGENT = "alfred-stock-photo-search/1.1"
+USER_AGENT = "alfred-stock-photo-search/1.2"
 # Unsplash wants UTM parameters on every link back to their site
 UTM = "utm_source=alfred_stock_photo_search&utm_medium=referral"
 
@@ -97,16 +101,24 @@ def t(key, **kwargs):
     return STRINGS[LANG][key].format(**kwargs)
 
 
+def short_hash(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:24]
+
+
 def get_json(url, headers=None):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **(headers or {})})
     with urllib.request.urlopen(req, timeout=8) as resp:
         return json.load(resp)
 
 
-def with_utm(url):
+def add_params(url, query_str):
     if not url:
         return ""
-    return url + ("&" if "?" in url else "?") + UTM
+    return url + ("&" if "?" in url else "?") + query_str
+
+
+def with_utm(url):
+    return add_params(url, UTM)
 
 
 def cache_file(name):
@@ -114,26 +126,59 @@ def cache_file(name):
 
 
 def thumb_file(url):
-    return cache_file("thumb_" + hashlib.md5(url.encode()).hexdigest() + ".jpg")
+    return cache_file("thumb_" + short_hash(url) + ".jpg")
 
 
-def has_thumb(url):
+def file_age(path):
+    try:
+        return time.time() - os.path.getmtime(path)
+    except OSError:
+        return None
+
+
+def thumb_state(url):
+    """Return 'ready', 'failed', or 'pending' for a thumbnail URL."""
     path = thumb_file(url)
-    return os.path.exists(path) and os.path.getsize(path) > 0
+    try:
+        if os.path.getsize(path) > 0:
+            return "ready"
+    except OSError:
+        pass
+    # a failed download gets another try after 10 minutes, so one network
+    # hiccup doesn't leave the icons missing until the cache is cleaned
+    age = file_age(path + ".failed")
+    if age is not None and age < 600:
+        return "failed"
+    return "pending"
 
 
 def fetch_thumbs(urls):
-    # Downloads run detached; the Script Filter reruns until all icons are there.
+    # Downloads run detached; the Script Filter reruns until all icons are resolved.
     # Write to .part first so Alfred never picks up a half-written file.
+    # On curl failure, touch .failed so rerun doesn't loop forever.
+    started = 0
     for url in urls:
+        if started >= MAX_PARALLEL_THUMBS:
+            break
         path = thumb_file(url)
-        if not os.path.exists(path):
-            subprocess.Popen(
-                ["/bin/sh", "-c", 'curl -sfL --max-time 8 -o "$1.part" "$2" && mv "$1.part" "$1"',
-                 "sh", path, url],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+        # a curl is already on it, unless the .part is left over from a killed run
+        part_age = file_age(path + ".part")
+        if part_age is not None and part_age < 30:
+            continue
+        started += 1
+        subprocess.Popen(
+            [
+                "/bin/sh",
+                "-c",
+                'if curl -sfL --max-time 8 -o "$1.part" "$2" && [ -s "$1.part" ]; then '
+                'mv "$1.part" "$1"; else rm -f "$1.part"; touch "$1.failed"; fi',
+                "sh",
+                path,
+                url,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
 
 def message(title, subtitle="", url=None):
@@ -184,7 +229,7 @@ def search_pexels(query, key):
 def search_pixabay(query, key):
     params = urllib.parse.urlencode({
         "key": key,
-        "q": query,
+        "q": query[:100],  # Pixabay API limits query length to 100 chars
         "per_page": PER_PAGE,
         "lang": LANG,
         "image_type": "photo",
@@ -231,7 +276,7 @@ def search_unsplash(query, key):
         links = p.get("links", {})
         # raw + params goes through Unsplash's resizer, so we get a sane size
         # instead of the 20+ MB original
-        large = urls["raw"] + "&w=2400&fm=jpg&q=85" if urls.get("raw") else urls.get("full")
+        large = add_params(urls.get("raw"), "w=2400&fm=jpg&q=85") or urls.get("full")
         photos.append({
             "id": p["id"],
             "thumb": urls.get("thumb"),
@@ -274,7 +319,10 @@ def clean_cache():
                 os.remove(path)
         except OSError:
             pass
-    open(marker, "w").close()
+    try:
+        open(marker, "w").close()
+    except OSError:
+        pass
 
 
 def parse_query(raw):
@@ -288,19 +336,33 @@ def parse_query(raw):
     return provider, query
 
 
+def search_cache_path(provider, query):
+    digest = short_hash(f"{provider}\0{LANG}\0{query}")
+    return cache_file(f"search_{digest}.json")
+
+
 def search(provider, query):
     # cached so the reruns while thumbnails load don't hit the API again
     os.makedirs(CACHE_DIR, exist_ok=True)
-    digest = hashlib.md5(f"{provider}\0{LANG}\0{query}".encode()).hexdigest()
-    path = cache_file(f"search_{digest}.json")
+    path = search_cache_path(provider, query)
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         pass
+
     photos = SEARCH[provider](query, KEYS[provider])
-    with open(path, "w") as f:
-        json.dump(photos, f)
+    if photos:
+        tmp = f"{path}.{os.getpid()}.tmp"
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(photos, f)
+            os.replace(tmp, path)
+        except OSError:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
     return photos
 
 
@@ -324,7 +386,7 @@ def to_item(photo, provider):
     subtitle = " · ".join(x for x in (size, credit, t("hints")) if x)
 
     thumb = photo["thumb"]
-    icon = thumb_file(thumb) if thumb and has_thumb(thumb) else "icon.png"
+    icon = thumb_file(thumb) if thumb and thumb_state(thumb) == "ready" else "icon.png"
 
     return {
         "uid": f"{provider}-{photo['id']}",
@@ -375,18 +437,26 @@ def script_filter(raw_query):
         return message(t("no_results", query=query, provider=name), t("no_results_sub"))
 
     thumbs = [p["thumb"] for p in photos if p["thumb"]]
-    missing = [u for u in thumbs if not has_thumb(u)]
-    fetch_thumbs(missing)
+    pending = [u for u in thumbs if thumb_state(u) == "pending"]
+    fetch_thumbs(pending)
 
     result = {"items": [to_item(p, provider) for p in photos], "skipknowledge": True}
     # Alfred calls us again after 0.5s and keeps going until rerun is gone,
-    # i.e. until every thumbnail is on disk
-    if missing:
+    # i.e. until every thumbnail is either on disk or marked as failed
+    if pending:
         result["rerun"] = 0.5
     return result
 
 
+def slugify(text):
+    normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+
+
 def download(url):
+    if not url.startswith(("https://", "http://")):
+        raise ValueError("Invalid download URL")
+
     provider = os.environ.get("photo_provider", PROVIDER)
     photo_id = os.environ.get("photo_id", "photo")
     author = os.environ.get("photo_author", "")
@@ -404,19 +474,34 @@ def download(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=60) as resp:
         content_type = resp.headers.get_content_type()
-        data = resp.read()
+        if not content_type.startswith("image/"):
+            raise ValueError(f"Unexpected content type: {content_type}")
 
-    # pexels-max-muster-417074.jpg, with -2, -3 ... if it already exists
-    ext = {"image/png": ".png", "image/webp": ".webp", "image/avif": ".avif"}.get(content_type, ".jpg")
-    slug = re.sub(r"[^a-z0-9]+", "-", author.lower()).strip("-")
-    base = "-".join(x for x in (provider, slug, photo_id) if x)
-    path = os.path.join(folder, base + ext)
-    n = 2
-    while os.path.exists(path):
-        path = os.path.join(folder, f"{base}-{n}{ext}")
-        n += 1
-    with open(path, "wb") as f:
-        f.write(data)
+        # pexels-max-muster-417074.jpg, with -2, -3 ... if it already exists
+        ext = {"image/png": ".png", "image/webp": ".webp", "image/avif": ".avif"}.get(content_type, ".jpg")
+        slug = slugify(author)
+        base = "-".join(x for x in (provider, slug, photo_id) if x)
+        path = os.path.join(folder, base + ext)
+        n = 2
+        while os.path.exists(path):
+            path = os.path.join(folder, f"{base}-{n}{ext}")
+            n += 1
+
+        # stream into a .part file so a dropped connection doesn't leave a
+        # broken image in the download folder
+        part = path + ".part"
+        try:
+            with open(part, "wb") as f:
+                shutil.copyfileobj(resp, f)
+            # copyfileobj just stops when the connection drops, it doesn't raise
+            expected = resp.headers.get("Content-Length")
+            if expected and os.path.getsize(part) != int(expected):
+                raise IOError("download incomplete")
+            os.replace(part, path)
+        except BaseException:
+            if os.path.exists(part):
+                os.remove(part)
+            raise
 
     if os.environ.get("reveal_in_finder", "1") == "1":
         subprocess.run(["open", "-R", path])
@@ -431,7 +516,8 @@ def main():
         print(json.dumps(script_filter(arg)))
         return
     if os.environ.get("open_only") == "1":
-        subprocess.run(["open", arg])
+        if arg.startswith(("https://", "http://")):
+            subprocess.run(["open", arg])
         return
 
     try:
