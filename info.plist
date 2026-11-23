@@ -531,7 +531,7 @@ The default provider, download size and folder are set in the [Workflow’s Conf
 	<key>variablesdontexport</key>
 	<array/>
 	<key>version</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>webaddress</key>
 	<string>https://github.com/renehamburg/alfred-stock-photo-search</string>
 </dict>

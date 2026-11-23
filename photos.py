@@ -33,7 +33,7 @@ try:
 except ValueError:
     CACHE_DAYS = 7
 
-USER_AGENT = "alfred-stock-photo-search/1.2"
+USER_AGENT = "alfred-stock-photo-search/1.2.1"
 # Unsplash wants UTM parameters on every link back to their site
 UTM = "utm_source=alfred_stock_photo_search&utm_medium=referral"
 
@@ -313,9 +313,13 @@ def clean_cache():
     os.makedirs(CACHE_DIR, exist_ok=True)
     cutoff = now - CACHE_DAYS * 86400
     for name in os.listdir(CACHE_DIR):
+        # only touch our own files (this also covers their .part/.failed/.tmp),
+        # in case someone points the download folder at the cache
+        if not name.startswith(("thumb_", "search_")):
+            continue
         path = cache_file(name)
         try:
-            if os.path.getmtime(path) < cutoff:
+            if os.path.isfile(path) and os.path.getmtime(path) < cutoff:
                 os.remove(path)
         except OSError:
             pass
