@@ -23,3 +23,7 @@ The default provider, download size and folder are set in the [Workflow’s Conf
 ## Licenses
 
 Photos from Pexels, Pixabay and Unsplash are free to use under their respective licenses ([Pexels](https://www.pexels.com/license/), [Pixabay](https://pixabay.com/service/license-summary/), [Unsplash](https://unsplash.com/license)). Attribution is not required but appreciated. Recognisable people, trademarks or artworks may be subject to additional rights.
+
+## About
+
+This workflow was written with the help of an AI assistant (Claude). I came up with the idea and the features, tested it on my Mac and reviewed the code. It's a single, readable Python script, so feel free to take a look.
